@@ -3,15 +3,25 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from utils import generate_response
+from contextlib import asynccontextmanager
+from db import close_mongo_connection, connect_to_mongo, get_database
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    print('Starting up')
+    await connect_to_mongo()
+    yield
+    # Shutdown logic
+    await close_mongo_connection()
+
+app = FastAPI(lifespan=lifespan)
 
 
 class UserInfo(BaseModel):
     username: str
     password: str
 
-
-
-app = FastAPI()
 
 origins = [
     "http://localhost:3000",
@@ -27,7 +37,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+@app.get("/insert")
+def write_data():
+    database = get_database()
+    collection = database["userinfo"]
+    collection.insert_one({"name": "John Doe"})
+    
 @app.get("/")
 def readrot():
     return {"Hello": "World"}
